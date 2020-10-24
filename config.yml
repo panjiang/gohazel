@@ -1,11 +1,11 @@
-
 bind: ":8080"
 debug: true
 debugGin: false
-baseURL: http://172.20.117.157:8080/
-assetsDir: assets
+baseURL: http://localhost:8080
+cacheDir: /assets
+proxyDownload: false
 github:
-  owner: panjiang
-  repo: crownote
-  token: 67416e117f02a71032cc0c3ef99b779ac72838e6
+  owner: atom
+  repo: atom
+  token: 
   pre: false

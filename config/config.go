@@ -1,9 +1,11 @@
 package config
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/panjiang/gohazel/cache"
 	"github.com/rs/zerolog/log"
@@ -12,19 +14,37 @@ import (
 
 // Config of the server
 type Config struct {
-	Bind      string              `yaml:"bind"`
-	Debug     bool                `yaml:"debug"`
-	DebugGin  bool                `yaml:"debugGin"`
-	BaseURL   string              `yaml:"baseURL"`
-	AssetsDir string              `yaml:"assetsDir"`
-	Github    *cache.GithubConfig `yaml:"github"`
+	Bind              string              `yaml:"bind"`
+	Debug             bool                `yaml:"debug"`
+	DebugGin          bool                `yaml:"debugGin"`
+	BaseURL           string              `yaml:"baseURL"`
+	CacheDir          string              `yaml:"cacheDir"`
+	OpenProxyDownload bool                `yaml:"proxyDownload"`
+	Github            *cache.GithubConfig `yaml:"github"`
+}
+
+// CacheURLPath the url path of handling cache files.
+func (c *Config) CacheURLPath() string {
+	return "assets"
+}
+
+// CacheURLBase the public base url for cache dir.
+func (c *Config) CacheURLBase() string {
+	u, _ := url.Parse(c.BaseURL)
+	u.Path = path.Join(u.Path, c.CacheURLPath())
+	return u.String()
 }
 
 func (c *Config) validate() error {
-	if _, err := url.Parse(c.BaseURL); err != nil {
+	if c.Github == nil {
+		return errors.New("no github config")
+	}
+
+	if _, err := os.Stat(c.CacheDir); err != nil {
 		return err
 	}
-	if _, err := os.Stat(c.AssetsDir); err != nil {
+
+	if _, err := url.Parse(c.BaseURL); err != nil {
 		return err
 	}
 

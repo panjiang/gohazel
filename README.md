@@ -21,22 +21,43 @@ Gohazel not only translated hazel to **Golang**, but also made some ajustments a
 - `/download` - Responses download url (`"Location"`) for detected platform which parsed from user agent.
 
 ```console
-$ curl http://{your-update-server-domain}/download
-{"Location":"http://{your-update-server-domain}/assets/Crownote.Setup.1.0.0.exe"}
+$ curl http://localhost:8080/download
+{"Location":"http://localhost:8080/assets/Crownote.Setup.1.0.0.exe"}
 ```
 
 - `/download/:platform` Responses download url for specified platform in uri.
 
 ```console
-$ curl http://{your-update-server-domain}/download/mac
-{"Location":"http://{your-update-server-domain}/assets/Crownote-1.0.0.dmg"}
+$ curl http://localhost:8080/download/mac
+{"Location":"http://localhost:8080/assets/Crownote-1.0.0.dmg"}
 ```
 
 - `/update/:platform/:version` Check update info
 
 ```
-$ curl http://172.20.117.157:8080/update/win/v0.0.1
-{"name":"v1.0.0","notes":"1. Basic notebook functions.\r\n2. Synchronize with remote.","pub_data":"2020-10-03T03:25:37Z","url":"http://{your-update-server-domain}/download/exe?update=true"}
+$ curl http://localhost:8080/update/win/v0.0.1
+{"name":"v1.0.0","notes":"1. Basic notebook functions.\r\n2. Synchronize with remote.","pub_data":"2020-10-03T03:25:37Z","url":"http://localhost:8080/download/exe?update=true"}
 ```
 
 - `/update/win32/:version/RELEASES` For Squirrel Windows
+
+## Assets Extensions
+
+Supports: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`
+
+## Run
+
+`config.yml`
+
+```yml
+bind: ":8080"
+debug: true
+debugGin: false
+baseURL: http://localhost:8080/
+cacheDir: assets
+github:
+  owner: panjiang
+  repo: gohazel
+  token:
+  pre: false
+```

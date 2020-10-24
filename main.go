@@ -43,10 +43,16 @@ func main() {
 			"message": "pong",
 		})
 	})
-	r.Static("/assets", conf.AssetsDir)
+
+	logev := log.Info().Bool("open", conf.OpenProxyDownload)
+	if conf.OpenProxyDownload {
+		r.Static(conf.CacheURLPath(), conf.CacheDir)
+		logev.Str("url", conf.CacheURLBase())
+	}
+	logev.Msg("Proxy download")
 
 	// Cache
-	cache := cache.NewGithubCache(conf.Github, conf.AssetsDir)
+	cache := cache.NewGithubCache(conf.Github, conf.CacheDir, conf.OpenProxyDownload, conf.CacheURLBase())
 
 	// Handler
 	h := handler.NewHandler(conf, cache)

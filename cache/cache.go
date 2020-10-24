@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,6 +23,7 @@ import (
 )
 
 var directCache = map[string]struct{}{
+	"darwin":   {},
 	"exe":      {},
 	"dmg":      {},
 	"rpm":      {},
@@ -62,6 +65,19 @@ type Release struct {
 	RELEASES  string            `json:"-"`
 }
 
+// ReleaseData release info data for caching into file.
+type ReleaseData struct {
+	Release           *Release `json:"release"`
+	RepoURL           string   `json:"repoUrl"`
+	OpenProxyDownload bool     `json:"openProxyDownload"`
+}
+
+// ProxyDownloadConfig of proxy download files with current server.
+type ProxyDownloadConfig struct {
+	SaveDir string `yaml:"saveDir"`
+	BaseURL string `yaml:"baseURL"`
+}
+
 // GithubConfig of the cache
 type GithubConfig struct {
 	Owner string `yaml:"owner"`
@@ -70,27 +86,59 @@ type GithubConfig struct {
 	Pre   bool   `yaml:"pre"`
 }
 
+// RepoURL returns repo URL on github.
+func (c *GithubConfig) RepoURL() string {
+	return fmt.Sprintf("github.com/%s/%s", c.Owner, c.Repo)
+}
+
+// IsPrivateRepo if is private repo should proxy assets download.
+func (c *GithubConfig) IsPrivateRepo() bool {
+	return c.Token != ""
+}
+
 // GithubCache caches release information fetching from github.
 type GithubCache struct {
-	conf         *GithubConfig
-	assetsDir    string
-	latest       *Release
-	latestMu     sync.RWMutex
-	latestUpdate time.Time
+	conf              *GithubConfig
+	cacheURLBase      string
+	openProxyDownload bool
+	cacheDir          string
+	latest            *Release
+	latestMu          sync.RWMutex
+	latestUpdate      time.Time
 }
 
 // NewGithubCache .
-func NewGithubCache(conf *GithubConfig, assetsDir string) *GithubCache {
+func NewGithubCache(conf *GithubConfig, cacheDir string, openProxyDownload bool, cacheURLBase string) *GithubCache {
 	g := &GithubCache{
-		conf:      conf,
-		assetsDir: assetsDir,
+		conf:              conf,
+		openProxyDownload: openProxyDownload,
+		cacheURLBase:      cacheURLBase,
+		cacheDir:          cacheDir,
 	}
+	log.Info().Str("url", conf.RepoURL()).Bool("private", conf.IsPrivateRepo()).Msg("Github repo")
+
 	g.loadReleaseCache()
 	go g.runRefreshLoop()
 	return g
 }
 
+// AssetFilePath generates file path for caching asset.
+func (g *GithubCache) AssetFilePath(release *Release, assetName string) string {
+	return filepath.Join(g.cacheDir, g.conf.Owner, g.conf.Repo, release.Version, assetName)
+}
+
+// AssetFileURL generates file download url of cached asset.
+func (g *GithubCache) AssetFileURL(release *Release, assetName string) string {
+	u, _ := url.Parse(g.cacheURLBase)
+	u.Path = filepath.Join(u.Path, g.conf.Owner, g.conf.Repo, release.Version, assetName)
+	return u.String()
+}
+
 func (g *GithubCache) newClient(ctx context.Context) *github.Client {
+	if g.conf.Token == "" {
+		return github.NewClient(nil)
+
+	}
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: g.conf.Token},
 	)
@@ -132,10 +180,10 @@ func (g *GithubCache) refreshCache() error {
 	}
 
 	g.latestMu.RLock()
-	latestOld := g.latest
+	latestPrev := g.latest
 	g.latestMu.RUnlock()
 
-	if latestOld != nil && latestOld.Version == *release.TagName && latestOld.PubDate.Equal(*release.PublishedAt) {
+	if latestPrev != nil && latestPrev.Version == *release.TagName && latestPrev.PubDate.Equal(*release.PublishedAt) {
 		g.latestUpdate = time.Now()
 		return nil
 	}
@@ -173,17 +221,27 @@ func (g *GithubCache) refreshCache() error {
 			Size:               (*asset.Size) / 1000000 * 10 / 10,
 		}
 
+		log.Info().Str("asset", *asset.Name).Str("platform", platform).Msg("Cache asset")
 		// Download asset into cache dir.
-		log.Info().Str("asset", *asset.Name).Str("platform", platform).Msg("Asset")
-		if err := g.cacheAsset(a); err != nil {
-			return err
+		if g.openProxyDownload {
+			if err := g.cacheAssetFile(latest, a); err != nil {
+				return err
+			}
 		}
+
 		latest.Platforms[platform] = a
 	}
 
 	g.latestMu.Lock()
 	g.latest = latest
 	g.latestMu.Unlock()
+
+	// Clean old cached assets
+	if latestPrev != nil {
+		for _, a := range latestPrev.Platforms {
+			os.Remove(g.AssetFilePath(latestPrev, a.Name))
+		}
+	}
 
 	g.latestUpdate = time.Now()
 
@@ -196,7 +254,7 @@ func (g *GithubCache) refreshCache() error {
 }
 
 func (g *GithubCache) loadReleaseCache() {
-	filename := filepath.Join(g.assetsDir, "release.json")
+	filename := filepath.Join(g.cacheDir, "release.json")
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -206,33 +264,45 @@ func (g *GithubCache) loadReleaseCache() {
 		return
 	}
 
-	var release Release
-	if err := json.Unmarshal(b, &release); err != nil {
+	var data ReleaseData
+	if err := json.Unmarshal(b, &data); err != nil {
 		log.Error().Err(err).Msg("Marshal release")
 		return
 	}
 
-	g.latestMu.Lock()
-	g.latest = &release
-	g.latestMu.Unlock()
+	if data.RepoURL != g.conf.RepoURL() {
+		return
+	}
+
+	if data.OpenProxyDownload != g.openProxyDownload {
+		return
+	}
+
+	g.latest = data.Release
+	log.Info().Str("version", g.latest.Version).Msg("Loaded release data from cache")
 }
 
 func (g *GithubCache) cacheReleaseLastest(release *Release) {
-	b, err := json.Marshal(release)
+	data := &ReleaseData{
+		Release:           release,
+		RepoURL:           g.conf.RepoURL(),
+		OpenProxyDownload: g.openProxyDownload,
+	}
+	b, err := json.Marshal(data)
 	if err != nil {
-		log.Error().Err(err).Msg("Marshal release")
+		log.Error().Err(err).Msg("Marshal release data")
 		return
 	}
 
-	filename := filepath.Join(g.assetsDir, "release.json")
+	filename := filepath.Join(g.cacheDir, "release.json")
 	if err := ioutil.WriteFile(filename, b, 0644); err != nil {
-		log.Error().Err(err).Msg("Write release")
+		log.Error().Err(err).Msg("Write release data")
 		return
 	}
 }
 
-func (g *GithubCache) cacheAsset(asset *Asset) error {
-	assetPath := filepath.Join(g.assetsDir, asset.Name)
+func (g *GithubCache) cacheAssetFile(release *Release, asset *Asset) error {
+	assetPath := g.AssetFilePath(release, asset.Name)
 	if _, err := os.Stat(assetPath); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -242,22 +312,33 @@ func (g *GithubCache) cacheAsset(asset *Asset) error {
 		return nil
 	}
 
+	if err := os.MkdirAll(filepath.Dir(assetPath), os.ModePerm); err != nil {
+		return err
+	}
+
+	tempPath := g.AssetFilePath(release, fmt.Sprintf("%s.tmp", asset.Name))
 	finalURL := strings.Replace(asset.URL, "https://api.github.com/", fmt.Sprintf("https://%s@api.github.com/", g.conf.Token), 1)
-	client := http.Client{}
-	log.Info().Str("url", finalURL).Str("name", asset.Name).Str("size", fmt.Sprintf("%dM", asset.Size)).Msg("Downloading...")
-	req, err := http.NewRequest("GET", finalURL, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/octet-stream")
+	log.Info().Str("url", finalURL).Str("to", assetPath).Str("name", asset.Name).Str("size", fmt.Sprintf("%dM", asset.Size)).Msg("Downloading...")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+	var b io.Reader
+	if os.Getenv("MODE") == "TESTING" {
+		b = bytes.NewBuffer([]byte(""))
+	} else {
+		client := http.Client{}
+		req, err := http.NewRequest("GET", finalURL, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Accept", "application/octet-stream")
 
-	tempPath := filepath.Join(g.assetsDir, fmt.Sprintf("%s.tmp", asset.Name))
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		b = resp.Body
+	}
+
 	out, err := os.Create(tempPath)
 	if err != nil {
 		return err
@@ -265,7 +346,7 @@ func (g *GithubCache) cacheAsset(asset *Asset) error {
 	defer out.Close()
 
 	startAt := time.Now()
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	if _, err := io.Copy(out, b); err != nil {
 		return err
 	}
 
@@ -279,10 +360,18 @@ func (g *GithubCache) cacheAsset(asset *Asset) error {
 
 func (g *GithubCache) cacheReleaseList(ctx context.Context, id int64, url string) (string, error) {
 	client := g.newClient(ctx)
-	rc, _, err := client.Repositories.DownloadReleaseAsset(ctx, g.conf.Owner, g.conf.Repo, id, nil)
+	rc, redirectURL, err := client.Repositories.DownloadReleaseAsset(ctx, g.conf.Owner, g.conf.Repo, id, nil)
 	if err != nil {
 		return "", err
 	}
+	if redirectURL != "" {
+		resp, err := http.Get(redirectURL)
+		if err != nil {
+			return "", err
+		}
+		rc = resp.Body
+	}
+	log.Debug().Interface("rc", rc).Str("redirectURL", redirectURL).Msg("cacheReleaseList")
 	defer rc.Close()
 
 	bs, err := ioutil.ReadAll(rc)

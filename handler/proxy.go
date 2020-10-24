@@ -1,10 +1,7 @@
 package handler
 
 import (
-	"net/url"
 	"os"
-	"path"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/panjiang/gohazel/cache"
@@ -12,15 +9,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (h *Handler) shouldProxyPrivateDownload() bool {
-	return h.conf.Github.Token != ""
-}
-
-func (h *Handler) proxyPrivateDownload(c *gin.Context, asset *cache.Asset) {
-	assetPath := filepath.Join(h.conf.AssetsDir, asset.Name)
+func (h *Handler) proxyDownload(c *gin.Context, release *cache.Release, asset *cache.Asset) {
+	assetPath := h.cache.AssetFilePath(release, asset.Name)
 	_, err := os.Stat(assetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Warn().Str("path", assetPath).Msg("Proxy download file lost")
 			api.NoContent(c)
 			return
 		}
@@ -28,10 +22,9 @@ func (h *Handler) proxyPrivateDownload(c *gin.Context, asset *cache.Asset) {
 		return
 	}
 
-	u, _ := url.Parse(h.conf.BaseURL)
-	u.Path = path.Join(u.Path, h.conf.AssetsDir, asset.Name)
+	location := h.cache.AssetFileURL(release, asset.Name)
 	api.Found(c, gin.H{
-		"Location": u.String(),
+		"Location": location,
 	})
 	return
 }
