@@ -17,33 +17,68 @@ Gohazel not only translated hazel to **Golang**, but also made some ajustments a
 
 ## URL Pathes
 
-- `/` - Overview repo and cached release information.
-- `/download` - Responses download url (`"Location"`) for detected platform which parsed from user agent.
+### `/`
+
+Overview repo and cached release information.
+
+### `/download`
+
+Responses download url (`"Location"`) for detected platform which parsed from user agent.
 
 ```console
 $ curl http://localhost:8080/download
-{"Location":"http://localhost:8080/assets/Crownote.Setup.1.0.0.exe"}
 ```
 
-- `/download/:platform` Responses download url for specified platform in uri.
+- Github directly
+
+```json
+{"Location":"https://github.com/atom/atom/releases/download/v1.52.0/AtomSetup.exe"}
+```
+
+- Server proxy
+
+```json
+{"Location":"http://localhost:8080/assets/atom/atom/v1.52.0/AtomSetup.exe"}
+```
+
+### `/download/:platform`
+
+Responses download url for specified platform in uri.
 
 ```console
-$ curl http://localhost:8080/download/mac
-{"Location":"http://localhost:8080/assets/Crownote-1.0.0.dmg"}
+$ curl http://localhost:8080/download/darwin
 ```
 
-- `/update/:platform/:version` Check update info
+- Github directly
+
+```json
+{"Location":"https://github.com/atom/atom/releases/download/v1.52.0/atom-mac.zip"}
+```
+
+- Server proxy
+
+```json
+{"Location":"http://localhost:8080/assets/atom/atom/v1.52.0/atom-mac.zip"}
+```
+
+### `/update/:platform/:version`
+
+Check update info
 
 ```
 $ curl http://localhost:8080/update/win/v0.0.1
-{"name":"v1.0.0","notes":"1. Basic notebook functions.\r\n2. Synchronize with remote.","pub_data":"2020-10-03T03:25:37Z","url":"http://localhost:8080/download/exe?update=true"}
+{"name":"v1.52.0","notes":"## Notable Changes...","pub_data":"2020-10-13T14:11:00Z","url":"http://localhost:8080/download/exe?update=true"}
 ```
 
-- `/update/win32/:version/RELEASES` For Squirrel Windows
+### `/update/win32/:version/RELEASES`
 
-## Assets Extensions
+For Squirrel Windows
 
-Supports: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`
+## Assets filename
+
+Supporting patterns: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`, `*mac*.zip`, `*darwin*.zip`
+
+References release of atom: https://github.com/atom/atom/releases
 
 ## Run
 
@@ -53,11 +88,12 @@ Supports: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`
 bind: ":8080"
 debug: true
 debugGin: false
-baseURL: http://localhost:8080/
-cacheDir: assets
+baseURL: http://localhost:8080
+cacheDir: /assets
+proxyDownload: false
 github:
-  owner: panjiang
-  repo: gohazel
+  owner: atom
+  repo: atom
   token:
   pre: false
 ```
