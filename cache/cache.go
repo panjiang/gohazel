@@ -279,7 +279,7 @@ func (g *GithubCache) loadReleaseCache() {
 	}
 
 	g.latest = data.Release
-	log.Info().Str("version", g.latest.Version).Msg("Loaded release data from cache")
+	log.Info().Str("version", g.latest.Version).Str("file", filename).Msg("Loaded release data from cache")
 }
 
 func (g *GithubCache) cacheReleaseLastest(release *Release) {

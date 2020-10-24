@@ -48,6 +48,10 @@ func (c *Config) validate() error {
 		return err
 	}
 
+	if c.Github.IsPrivateRepo() && !c.OpenProxyDownload {
+		return errors.New("Private repo should open proxyDownload")
+	}
+
 	return nil
 }
 
