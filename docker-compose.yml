@@ -1,0 +1,11 @@
+version: "3.7"
+
+services:
+  gohazel:
+    container_name: gohazel
+    image: panjiang/gohazel:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data/gohazel/config.yml:/app/config.yml
+      - /data/gohazel/assets:/assets

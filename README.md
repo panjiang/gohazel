@@ -1,9 +1,9 @@
 # Gohazel
 
-A versions update server writen in Golang. Supports updating an [Electron](https://www.electronjs.org/docs/tutorial/updates) applicaiton.
+A versions update server writen in Golang. Supports updating an [Electron](https://www.electronjs.org/docs/tutorial/updates) application.
 
-- Response Github public download url for public repo.
-- Response your private server download url for private repo. Cache release information and assets by Github api.
+- **Private repo** - Response your proxy server download url. Cache release information and assets by Github api.
+- **Public repo** - Response Github public download url directly. Alse support proxy.
 
 ## Difference from Hazel
 
@@ -74,19 +74,19 @@ $ curl http://localhost:8080/update/win/v0.0.1
 
 For Squirrel Windows
 
-## Assets filename
+## Assets Filename
 
 Supporting patterns: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`, `*mac*.zip`, `*darwin*.zip`
 
 References release of atom: https://github.com/atom/atom/releases
 
-## Run
+## Config File
 
 `config.yml`
 
 ```yml
 bind: ":8080"
-debug: true
+debug: false
 debugGin: false
 baseURL: http://localhost:8080
 cacheDir: /assets
@@ -96,4 +96,51 @@ github:
   repo: atom
   token:
   pre: false
+```
+
+- `baseURL` - Public base URL of the server.
+- `cacheDIr` - The directory for store cache release info and asset files.
+- `proxyDownload` - Whether to let the server proxy assets download.
+- `github.owner` - Account username.
+- `github.repo` - Repository name.
+- `github.token` - The Github API Token for fetching release info and download assets from private repo.
+- `github.pre` - Whether to fetch the pre-release versions.
+
+## Run with Container
+
+Docker Repository: [panjiang/gohazel](https://hub.docker.com/repository/docker/panjiang/gohazel)
+
+- Write your config file `/data/gohazel/config.yml`
+- Store cache files in `/data/gohazel/assets`
+
+### Docker
+
+```console
+docker run -d --name gohazel \
+		-v /data/gohazel/config.yml:/app/config.yml \
+		-v /data/gohazel/assets:/assets \
+		-p 8080:8080 \
+		panjiang/gohazel:latest
+```
+
+### Docker Compose
+
+`docker-compose.yml`
+
+```yml
+version: "3.7"
+
+services:
+  gohazel:
+    container_name: gohazel
+    image: panjiang/gohazel:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data/gohazel/config.yml:/app/config.yml
+      - /data/gohazel/assets:/assets
+```
+
+```console
+$ docker-compose up -d
 ```
