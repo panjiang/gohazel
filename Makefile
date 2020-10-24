@@ -18,3 +18,6 @@ run-docker:
 		-v /data/gohazel/assets:/assets \
 		-p 8080:8080 \
 		panjiang/gohazel
+
+release:
+	./scripts/release.sh
