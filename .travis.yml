@@ -1,0 +1,25 @@
+language: go
+
+go:
+- 1.14.x
+- 1.15.x
+- master
+
+env:
+- GO111MODULE=on
+go_import_path: github.com/panjiang/gohazel
+install:
+- go mod tidy
+- go get -u honnef.co/go/tools/cmd/staticcheck
+before_script:
+- GO_LIST=$(go list ./...)
+- go build
+- $(exit $(go fmt $GO_LIST | wc -l))
+- go vet $GO_LIST
+- staticcheck $GO_LIST
+script:
+- set -e
+- go test -i ./...
+- set +e
+
+
