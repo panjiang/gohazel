@@ -239,7 +239,10 @@ func (g *GithubCache) refreshCache() error {
 	// Clean old cached assets
 	if latestPrev != nil {
 		for _, a := range latestPrev.Platforms {
-			os.Remove(g.AssetFilePath(latestPrev, a.Name))
+			fn := g.AssetFilePath(latestPrev, a.Name)
+			if err := os.Remove(fn); err != nil {
+				log.Error().Err(err).Str("file", fn).Msg("Remove old asset")
+			}
 		}
 	}
 
@@ -354,7 +357,7 @@ func (g *GithubCache) cacheAssetFile(release *Release, asset *Asset) error {
 		return err
 	}
 
-	log.Info().Str("path", assetPath).Dur("duration", time.Now().Sub(startAt)).Msg("Download completed")
+	log.Info().Str("path", assetPath).Dur("duration", time.Since(startAt)).Msg("Download completed")
 	return nil
 }
 
@@ -383,7 +386,7 @@ func (g *GithubCache) cacheReleaseList(ctx context.Context, id int64, url string
 	re := regexp.MustCompile(`[^ ]*\.nupkg`)
 	matches := re.FindAllString(content, -1)
 	if len(matches) == 0 {
-		return "", errors.New("Tried to cache RELEASES, but failed. RELEASES content doesn't contain nupkg")
+		return "", errors.New("RELEASES content doesn't contain nupkg")
 	}
 
 	for _, match := range matches {

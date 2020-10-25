@@ -26,5 +26,4 @@ func (h *Handler) proxyDownload(c *gin.Context, release *cache.Release, asset *c
 	api.Found(c, gin.H{
 		"Location": location,
 	})
-	return
 }

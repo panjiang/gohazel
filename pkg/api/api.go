@@ -10,7 +10,7 @@ import (
 // BadRequest 400
 func BadRequest(c *gin.Context, field string, msg string) {
 	if msg == "" {
-		msg = fmt.Sprintf("invalid")
+		msg = fmt.Sprintf("invalid %s", field)
 	}
 	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": msg, "field": field})
 }

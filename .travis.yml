@@ -22,4 +22,10 @@ script:
 - go test -i ./...
 - set +e
 
-
+deploy:
+  provider: script
+  cleanup: true
+  script: curl -sL http://git.io/goreleaser | bash
+  on:
+    tags: true
+    condition: $TRAVIS_GO_VERSION =~ 1.15

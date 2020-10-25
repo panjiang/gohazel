@@ -4,7 +4,7 @@ RUN apk add --no-cache ca-certificates
 WORKDIR /app
 
 ADD config.yml .
-ADD build/gohazel .
+ADD dist/gohazel .
 
 RUN mkdir /assets
 

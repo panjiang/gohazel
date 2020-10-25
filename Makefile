@@ -19,7 +19,15 @@ docker-run:
 		-p 8080:8080 \
 		panjiang/gohazel
 
-# VERSION=1.0.1 make release
-.PHONY: release
+staticcheck:
+	@hash staticcheck > /dev/null 2>&1; if [ $$? -ne 0 ]; then \
+		$(GO) get -u honnef.co/go/tools/cmd/staticcheck; \
+	fi
+	staticcheck ./...
+
+.PHONY: test
+test:
+	go test -race ./...
+
 release:
-	./scripts/release.sh
+	goreleaser

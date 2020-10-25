@@ -59,5 +59,4 @@ func (h *Handler) Update(c *gin.Context) {
 		"pub_data": release.PubDate,
 		"url":      downloadURL,
 	})
-	return
 }
