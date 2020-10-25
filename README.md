@@ -1,10 +1,14 @@
 # Gohazel
 
+[![Build][build-status-image]][build-status-url]
+
 A versions update server writen in Golang. Supports updating an [Electron](https://www.electronjs.org/docs/tutorial/updates) application.
 
 - **Private repo** - Response your proxy server download url. Cache release information and assets by Github api.
 - **Public repo** - Response Github public download url directly. Alse support proxy.
 
+[build-status-url]: https://travis-ci.org/panjiang/gohazel
+[build-status-image]: https://travis-ci.org/panjiang/gohazel.svg?branch=master
 ## Difference from Hazel
 
 The project is inspired by [Hazel](https://github.com/vercel/hazel). Hazel is very complicated to deploy, because it is coded in NodeJS.

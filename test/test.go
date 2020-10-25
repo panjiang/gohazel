@@ -35,6 +35,9 @@ func RunServer(conf *config.Config) *server.Server {
 // Request send HTTP request to server.
 func Request(baseURL string, uri string) (int, []byte) {
 	u, err := url.Parse(baseURL)
+	if err != nil {
+		panic(err)
+	}
 	u.Path = path.Join(u.Path, uri)
 	resp, err := http.Get(u.String())
 	if err != nil {
