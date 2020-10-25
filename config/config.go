@@ -35,7 +35,8 @@ func (c *Config) CacheURLBase() string {
 	return u.String()
 }
 
-func (c *Config) validate() error {
+// Validate some config items.
+func (c *Config) Validate() error {
 	if c.Github == nil {
 		return errors.New("no github config")
 	}
@@ -68,7 +69,7 @@ func Parse(filename string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := conf.validate(); err != nil {
+	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
 	return &conf, nil

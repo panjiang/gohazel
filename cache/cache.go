@@ -98,6 +98,10 @@ func (c *GithubConfig) IsPrivateRepo() bool {
 
 // GithubCache caches release information fetching from github.
 type GithubCache struct {
+	quitCh            chan struct{}
+	wg                sync.WaitGroup
+	mu                sync.Mutex
+	closed            bool
 	conf              *GithubConfig
 	cacheURLBase      string
 	openProxyDownload bool
@@ -110,6 +114,7 @@ type GithubCache struct {
 // NewGithubCache .
 func NewGithubCache(conf *GithubConfig, cacheDir string, openProxyDownload bool, cacheURLBase string) *GithubCache {
 	g := &GithubCache{
+		quitCh:            make(chan struct{}),
 		conf:              conf,
 		openProxyDownload: openProxyDownload,
 		cacheURLBase:      cacheURLBase,
@@ -118,8 +123,22 @@ func NewGithubCache(conf *GithubConfig, cacheDir string, openProxyDownload bool,
 	log.Info().Str("url", conf.RepoURL()).Bool("private", conf.IsPrivateRepo()).Msg("Github repo")
 
 	g.loadReleaseCache()
+	g.wg.Add(1)
 	go g.runRefreshLoop()
 	return g
+}
+
+// Stop the cache services.
+func (g *GithubCache) Stop() {
+	g.mu.Lock()
+	if g.closed {
+		g.mu.Unlock()
+		return
+	}
+	g.closed = true
+	g.mu.Unlock()
+	close(g.quitCh)
+	g.wg.Wait()
 }
 
 // AssetFilePath generates file path for caching asset.
@@ -402,6 +421,7 @@ func (g *GithubCache) isOutdated() bool {
 }
 
 func (g *GithubCache) runRefreshLoop() {
+	defer g.wg.Done()
 	for {
 		if g.isOutdated() {
 			if err := g.refreshCache(); err != nil {
@@ -409,7 +429,11 @@ func (g *GithubCache) runRefreshLoop() {
 			}
 		}
 
-		<-time.After(time.Minute * 1)
+		select {
+		case <-g.quitCh:
+			return
+		case <-time.After(time.Minute * 1):
+		}
 	}
 }
 

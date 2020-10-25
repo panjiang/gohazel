@@ -1,6 +1,6 @@
 
 run:
-	go run main.go
+	go run -race main.go
 
 # Jump file download, write a empty file instead.
 run-testing:
