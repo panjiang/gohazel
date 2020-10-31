@@ -9,6 +9,17 @@ A versions update server writen in Golang. Supports updating an [Electron](https
 
 [build-status-url]: https://travis-ci.org/panjiang/gohazel
 [build-status-image]: https://travis-ci.org/panjiang/gohazel.svg?branch=master
+
+## Contents
+
+- [Difference from Hazel](#difference-from-hazel)
+- [URL Pathes](#url-pathes)
+- [Assets Filename](#assets-filename)
+- [Config File](#config-file)
+- [Run with Container](#run-with-container)
+  - [Docker](#docker)
+  - [Docker Compose](#docker-compose)
+
 ## Difference from Hazel
 
 The project is inspired by [Hazel](https://github.com/vercel/hazel). Hazel is very complicated to deploy, because it is coded in NodeJS.
@@ -84,7 +95,23 @@ Supporting patterns: `*.exe`,`*.dmg`, `*.rpm`, `*.deb`, `*.AppImage`, `*mac*.zip
 
 References release of atom: https://github.com/atom/atom/releases
 
-## Config File
+## Command Flags
+
+```text
+Usage: gohazel [options]
+Server Options:
+    -addr             Server listen address.
+    -base_url         The server base URL.
+    -debug            Open log debug level.
+    -cache_dir        Cache files store in.
+    -proxy_download   Proxy assets download with the server.
+    -github_owner     Gihtub owner name.
+    -github_repo      Github repository name.
+    -github_token     Github api token for private repo.
+    -config           Or specify a YAML configuration file.
+```
+
+## Or Config File
 
 `config.yml`
 
@@ -102,29 +129,20 @@ github:
   pre: false
 ```
 
-- `baseURL` - Public base URL of the server.
-- `cacheDIr` - The directory for store cache release info and asset files.
-- `proxyDownload` - Whether to let the server proxy assets download.
-- `github.owner` - Account username.
-- `github.repo` - Repository name.
-- `github.token` - The Github API Token for fetching release info and download assets from private repo.
-- `github.pre` - Whether to fetch the pre-release versions.
-
 ## Run with Container
 
 Docker Repository: [panjiang/gohazel](https://hub.docker.com/repository/docker/panjiang/gohazel)
 
-- Write your config file `/data/gohazel/config.yml`
 - Store cache files in `/data/gohazel/assets`
 
 ### Docker
 
 ```console
-docker run -d --name gohazel \
-		-v /data/gohazel/config.yml:/app/config.yml \
+docker run -d --rm --name gohazel \
+        -v /data/gohazel/config.yml:/config.yml\
 		-v /data/gohazel/assets:/assets \
 		-p 8080:8080 \
-		panjiang/gohazel:latest
+		panjiang/gohazel
 ```
 
 ### Docker Compose
@@ -133,7 +151,6 @@ docker run -d --name gohazel \
 
 ```yml
 version: "3.7"
-
 services:
   gohazel:
     container_name: gohazel
@@ -141,8 +158,16 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /data/gohazel/config.yml:/app/config.yml
       - /data/gohazel/assets:/assets
+    command:
+      - /gohazel
+      - -addr=:8080
+      - -base_url=http://localhost:8080
+      - -cache_dir=/assets
+      - -proxy_download=false
+      - -github_owner=atom
+      - -github_repo=atom
+      - -github_token=
 ```
 
 ```console

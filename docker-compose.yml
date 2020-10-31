@@ -1,5 +1,4 @@
 version: "3.7"
-
 services:
   gohazel:
     container_name: gohazel
@@ -9,8 +8,9 @@ services:
     volumes:
       - /data/gohazel/assets:/assets
     command:
-      - /gohazel -addr=:8080
-      - -base_url=http://localhost:8081
+      - /gohazel 
+      - -addr=:8080
+      - -base_url=http://localhost:8080
       - -cache_dir=/assets
       - -proxy_download=false
       - -github_owner=atom
