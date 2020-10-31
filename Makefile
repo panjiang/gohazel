@@ -29,4 +29,4 @@ test:
 	go test -race ./...
 
 release:
-	goreleaser
+	goreleaser --rm-dist 
