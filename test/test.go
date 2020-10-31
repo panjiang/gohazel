@@ -9,18 +9,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/panjiang/gohazel/cache"
 	"github.com/panjiang/gohazel/config"
 	"github.com/panjiang/gohazel/pkg/logger"
 	"github.com/panjiang/gohazel/server"
 )
 
-// NewConfig return test config.
-func NewConfig() *config.Config {
-	conf, err := config.Parse("config-test.yml")
-	if err != nil {
-		panic(err)
+func DefaultConfig() *config.Config {
+	return &config.Config{
+		Addr:          ":18080",
+		BaseURL:       "http://localhost:18080",
+		CacheDir:      "/tmp/assets",
+		Debug:         false,
+		ProxyDownload: false,
+		Github: cache.GithubConfig{
+			Owner: "atom",
+			Repo:  "atom",
+			Token: "",
+		},
 	}
-	return conf
 }
 
 // RunServer startups a test server.

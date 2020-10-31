@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"flag"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -14,13 +15,12 @@ import (
 
 // Config of the server
 type Config struct {
-	Bind              string              `yaml:"bind"`
-	Debug             bool                `yaml:"debug"`
-	DebugGin          bool                `yaml:"debugGin"`
-	BaseURL           string              `yaml:"baseURL"`
-	CacheDir          string              `yaml:"cacheDir"`
-	OpenProxyDownload bool                `yaml:"proxyDownload"`
-	Github            *cache.GithubConfig `yaml:"github"`
+	Addr          string             `yaml:"addr"`
+	Debug         bool               `yaml:"debug"`
+	BaseURL       string             `yaml:"baseURL"`
+	CacheDir      string             `yaml:"cacheDir"`
+	ProxyDownload bool               `yaml:"proxyDownload"`
+	Github        cache.GithubConfig `yaml:"github"`
 }
 
 // CacheURLPath the url path of handling cache files.
@@ -37,7 +37,7 @@ func (c *Config) CacheURLBase() string {
 
 // Validate some config items.
 func (c *Config) Validate() error {
-	if c.Github == nil {
+	if c.Github.Owner == "" || c.Github.Repo == "" {
 		return errors.New("no github config")
 	}
 
@@ -49,28 +49,53 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if c.Github.IsPrivateRepo() && !c.OpenProxyDownload {
+	if c.Github.IsPrivateRepo() && !c.ProxyDownload {
 		return errors.New("private repo should open proxyDownload")
 	}
 
 	return nil
 }
 
-// Parse config instance from yaml file
-func Parse(filename string) (*Config, error) {
+// ParseFile parses config instance from yaml file
+func (c *Config) ParseFile(filename string) error {
 	log.Info().Str("filename", filename).Msg("Read config")
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
+		return err
+	}
+
+	return yaml.Unmarshal(b, c)
+}
+
+// Parse parses config from flags and file
+func Parse(fs *flag.FlagSet, args []string) (*Config, error) {
+	conf := &Config{}
+	var configFile string
+	fs.StringVar(&conf.Addr, "addr", ":8080", "Server listen address.")
+	fs.StringVar(&conf.BaseURL, "base_url", "http://localhost:8080", "The server base URL.")
+	fs.BoolVar(&conf.Debug, "debug", false, "Open log debug level.")
+	fs.StringVar(&conf.CacheDir, "cache_dir", "/assets", "Cache files store in.")
+	fs.BoolVar(&conf.ProxyDownload, "proxy_download", false, "Proxy assets download with the server.")
+	fs.StringVar(&conf.Github.Owner, "github_owner", "atom", "Gihtub owner name.")
+	fs.StringVar(&conf.Github.Repo, "github_repo", "atom", "Github repository name.")
+	fs.StringVar(&conf.Github.Token, "github_token", "", "Github api token for private repo.")
+	fs.StringVar(&configFile, "config", "", "Configuration file.")
+	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
 
-	var conf Config
-	if err := yaml.Unmarshal(b, &conf); err != nil {
-		return nil, err
+	if configFile != "" {
+		if err := conf.ParseFile(configFile); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := conf.Validate(); err != nil {
 		return nil, err
 	}
-	return &conf, nil
+	if conf.Debug {
+		log.Info().Msg("Open debug log")
+	}
+
+	return conf, nil
 }

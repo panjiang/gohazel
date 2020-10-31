@@ -2,29 +2,39 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
+	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/panjiang/gohazel/config"
 	"github.com/panjiang/gohazel/pkg/logger"
 	"github.com/panjiang/gohazel/server"
 	"github.com/rs/zerolog/log"
 )
 
-var (
-	flagConf string
-)
+var usageStr = `Usage: gohazel [options]
+Server Options:
+    -addr             Server listen address.
+    -base_url         The server base URL.
+    -debug            Open log debug level.
+    -cache_dir        Cache files store in.
+    -proxy_download   Proxy assets download with the server.
+    -github_owner     Gihtub owner name.
+    -github_repo      Github repository name.
+    -github_token     Github api token for private repo.
+    -config           Or specify a YAML configuration file.
+`
 
-func init() {
-	flag.StringVar(&flagConf, "conf", "config.yml", "config file in yaml formating")
-
-	gin.SetMode(gin.ReleaseMode)
+func usage() {
+	fmt.Println(usageStr)
+	os.Exit(0)
 }
 
 func main() {
-	flag.Parse()
+	fs := flag.NewFlagSet("gohazel", flag.ExitOnError)
+	fs.Usage = usage
 
-	conf, err := config.Parse(flagConf)
+	conf, err := config.Parse(fs, os.Args[1:])
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}

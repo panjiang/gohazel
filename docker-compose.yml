@@ -7,5 +7,12 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /data/gohazel/config.yml:/app/config.yml
       - /data/gohazel/assets:/assets
+    command:
+      - /gohazel -addr=:8080
+      - -base_url=http://localhost:8081
+      - -cache_dir=/assets
+      - -proxy_download=false
+      - -github_owner=atom
+      - -github_repo=atom
+      - -github_token=

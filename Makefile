@@ -14,7 +14,6 @@ docker-push:
 
 docker-run:
 	docker run --rm -d --name gohazel \
-		-v /data/gohazel/config.yml:/app/config.yml \
 		-v /data/gohazel/assets:/assets \
 		-p 8080:8080 \
 		panjiang/gohazel

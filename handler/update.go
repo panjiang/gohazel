@@ -42,7 +42,7 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	var downloadURL string
-	if h.conf.OpenProxyDownload {
+	if h.conf.ProxyDownload {
 		u, _ := url.Parse(h.conf.BaseURL)
 		u.Path = path.Join(u.Path, "download", platform)
 		q := u.Query()

@@ -21,7 +21,7 @@ func (h *Handler) download(c *gin.Context, platform string) {
 		return
 	}
 
-	if h.conf.OpenProxyDownload {
+	if h.conf.ProxyDownload {
 		h.proxyDownload(c, release, asset)
 		return
 	}

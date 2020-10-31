@@ -8,7 +8,7 @@ import (
 )
 
 func TestOverview(t *testing.T) {
-	conf := NewConfig()
+	conf := DefaultConfig()
 	s := RunServer(conf)
 	defer s.Shutdown()
 

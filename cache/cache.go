@@ -67,9 +67,9 @@ type Release struct {
 
 // ReleaseData release info data for caching into file.
 type ReleaseData struct {
-	Release           *Release `json:"release"`
-	RepoURL           string   `json:"repoUrl"`
-	OpenProxyDownload bool     `json:"openProxyDownload"`
+	Release       *Release `json:"release"`
+	RepoURL       string   `json:"repoUrl"`
+	ProxyDownload bool     `json:"openProxyDownload"`
 }
 
 // ProxyDownloadConfig of proxy download files with current server.
@@ -83,7 +83,6 @@ type GithubConfig struct {
 	Owner string `yaml:"owner"`
 	Repo  string `yaml:"repo"`
 	Token string `yaml:"token"`
-	Pre   bool   `yaml:"pre"`
 }
 
 // RepoURL returns repo URL on github.
@@ -184,7 +183,7 @@ func (g *GithubCache) refreshCache() error {
 		if *item.Draft {
 			continue
 		}
-		if *item.Prerelease && !g.conf.Pre {
+		if *item.Prerelease {
 			continue
 		}
 		if len(item.Assets) == 0 {
@@ -296,7 +295,7 @@ func (g *GithubCache) loadReleaseCache() {
 		return
 	}
 
-	if data.OpenProxyDownload != g.openProxyDownload {
+	if data.ProxyDownload != g.openProxyDownload {
 		return
 	}
 
@@ -306,9 +305,9 @@ func (g *GithubCache) loadReleaseCache() {
 
 func (g *GithubCache) cacheReleaseLastest(release *Release) {
 	data := &ReleaseData{
-		Release:           release,
-		RepoURL:           g.conf.RepoURL(),
-		OpenProxyDownload: g.openProxyDownload,
+		Release:       release,
+		RepoURL:       g.conf.RepoURL(),
+		ProxyDownload: g.openProxyDownload,
 	}
 	b, err := json.Marshal(data)
 	if err != nil {

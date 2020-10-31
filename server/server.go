@@ -27,13 +27,13 @@ type Server struct {
 // Run up the server
 func (s *Server) Run() error {
 	srv := &http.Server{
-		Addr:    s.conf.Bind,
+		Addr:    s.conf.Addr,
 		Handler: s.engine,
 	}
 	s.mu.Lock()
 	s.srv = srv
 	s.mu.Unlock()
-	log.Info().Str("addr", s.conf.Bind).Msg("Server run")
+	log.Info().Str("addr", s.conf.Addr).Msg("Server run")
 	return srv.ListenAndServe()
 }
 
@@ -63,7 +63,7 @@ func (s *Server) Shutdown() {
 // NewServer will setup a new server with specific config.
 func NewServer(conf *config.Config) *Server {
 	// Router
-	r := ginpkg.New(conf.DebugGin)
+	r := ginpkg.New()
 	r.Use()
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -72,15 +72,15 @@ func NewServer(conf *config.Config) *Server {
 		})
 	})
 
-	logev := log.Info().Bool("open", conf.OpenProxyDownload)
-	if conf.OpenProxyDownload {
+	logev := log.Info().Bool("open", conf.ProxyDownload)
+	if conf.ProxyDownload {
 		r.Static(conf.CacheURLPath(), conf.CacheDir)
 		logev.Str("url", conf.CacheURLBase())
 	}
 	logev.Msg("Proxy download")
 
 	// Cache
-	cache := cache.NewGithubCache(conf.Github, conf.CacheDir, conf.OpenProxyDownload, conf.CacheURLBase())
+	cache := cache.NewGithubCache(&conf.Github, conf.CacheDir, conf.ProxyDownload, conf.CacheURLBase())
 
 	// Handler
 	h := handler.NewHandler(conf, cache)

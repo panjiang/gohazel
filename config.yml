@@ -1,11 +1,9 @@
-bind: ":8080"
+addr: ":8080"
+baseURL: http://localhost:8081
 debug: true
-debugGin: false
-baseURL: http://localhost:8080
 cacheDir: /assets
 proxyDownload: false
 github:
   owner: atom
   repo: atom
   token: 
-  pre: false

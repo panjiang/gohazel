@@ -1,6 +1,8 @@
 package gin
 
 import (
+	"os"
+
 	"github.com/rs/zerolog/log"
 
 	"github.com/gin-contrib/logger"
@@ -8,13 +10,15 @@ import (
 )
 
 func init() {
-	gin.SetMode(gin.ReleaseMode)
+	if os.Getenv(gin.EnvGinMode) == "" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 }
 
 // New returns gin engine with custom settings.
-func New(debug bool) *gin.Engine {
+func New() *gin.Engine {
 	r := gin.New()
-	if debug {
+	if gin.Mode() == gin.DebugMode {
 		gin.SetMode(gin.DebugMode)
 		r.Use(ginLogger())
 	}
