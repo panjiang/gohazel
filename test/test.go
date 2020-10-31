@@ -15,6 +15,7 @@ import (
 	"github.com/panjiang/gohazel/server"
 )
 
+// DefaultConfig .
 func DefaultConfig() *config.Config {
 	return &config.Config{
 		Addr:          ":18080",
