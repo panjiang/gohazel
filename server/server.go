@@ -63,7 +63,7 @@ func (s *Server) Shutdown() {
 // NewServer will setup a new server with specific config.
 func NewServer(conf *config.Config) *Server {
 	// Router
-	r := ginpkg.New()
+	r := ginpkg.New(conf.Debug)
 	r.Use()
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -89,7 +89,7 @@ func NewServer(conf *config.Config) *Server {
 	r.GET("/download/:platform", h.DownloadPlatform)
 	r.GET("/update/:platform/:version", h.Update)
 	r.GET("/update/:platform/:version/RELEASES", h.Releases) // `/update/win32/:version/RELEASES`
-
+	r.GET("/update/:platform/:version/latest.yml", h.UpdateLatestYml)
 	return &Server{
 		conf:   conf,
 		cache:  cache,

@@ -1,6 +1,9 @@
 
 run:
-	go run -race main.go
+	go run main.go
+
+run-private:
+	MODE=TESTING go run main.go -config=config.private.yml
 
 # Jump file download, write a empty file instead.
 run-testing:
@@ -26,7 +29,7 @@ staticcheck:
 
 .PHONY: test
 test:
-	go test -race ./...
+	go test ./...
 
 release:
 	goreleaser --rm-dist 

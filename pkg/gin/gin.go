@@ -16,9 +16,9 @@ func init() {
 }
 
 // New returns gin engine with custom settings.
-func New() *gin.Engine {
+func New(debug bool) *gin.Engine {
 	r := gin.New()
-	if gin.Mode() == gin.DebugMode {
+	if debug {
 		gin.SetMode(gin.DebugMode)
 		r.Use(ginLogger())
 	}

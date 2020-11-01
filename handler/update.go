@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 
@@ -11,8 +13,19 @@ import (
 
 // Update handles checking update request.
 func (h *Handler) Update(c *gin.Context) {
+	h.update(c, false)
+}
+
+// UpdateLatestYml responses latest.yml
+func (h *Handler) UpdateLatestYml(c *gin.Context) {
+	h.update(c, true)
+}
+
+func (h *Handler) update(c *gin.Context, isYmL bool) {
 	platform := c.Param("platform")
 	version := c.Param("version")
+	version = ToSemver(version)
+
 	if !semver.IsValid(version) {
 		api.BadRequest(c, "version", "is not SemVer-compatible")
 		return
@@ -30,33 +43,46 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	asset, ok := release.Platforms[platform]
-	if !ok {
-		api.NoContent(c)
-		return
-	}
+	if !isYmL {
+		if semver.Compare(version, release.Version) == 0 {
+			api.NoContent(c)
+			return
+		}
 
-	if semver.Compare(release.Version, version) == 0 {
-		api.NoContent(c)
-		return
-	}
+		asset, ok := release.Platforms[platform]
+		if !ok {
+			api.NoContent(c)
+			return
+		}
 
-	var downloadURL string
-	if h.conf.ProxyDownload {
-		u, _ := url.Parse(h.conf.BaseURL)
-		u.Path = path.Join(u.Path, "download", platform)
-		q := u.Query()
-		q.Add("update", "true")
-		u.RawQuery = q.Encode()
-		downloadURL = u.String()
+		var downloadURL string
+		if h.conf.ProxyDownload {
+			u, _ := url.Parse(h.conf.BaseURL)
+			u.Path = path.Join(u.Path, "download", platform)
+			q := u.Query()
+			q.Add("update", "true")
+			u.RawQuery = q.Encode()
+			downloadURL = u.String()
+		} else {
+			downloadURL = asset.BrowserDownloadURL
+		}
+
+		api.Ok(c, gin.H{
+			"name":     release.Version,
+			"notes":    release.Notes,
+			"pub_data": release.PubDate,
+			"url":      downloadURL,
+		})
 	} else {
-		downloadURL = asset.BrowserDownloadURL
-	}
+		// latest.yml
+		latestYml, ok := release.PlatformYmls[platform]
+		fmt.Println(release.PlatformYmls, latestYml)
+		if !ok {
+			api.NoContent(c)
+			return
+		}
 
-	api.Ok(c, gin.H{
-		"name":     release.Version,
-		"notes":    release.Notes,
-		"pub_data": release.PubDate,
-		"url":      downloadURL,
-	})
+		b := []byte(latestYml)
+		c.Data(http.StatusOK, "application/octet-stream", b)
+	}
 }

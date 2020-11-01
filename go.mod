@@ -12,6 +12,7 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/rs/zerolog v1.20.0
+	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go v1.1.8 // indirect
 	golang.org/x/mod v0.3.0
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect

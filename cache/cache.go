@@ -31,6 +31,21 @@ var directCache = map[string]struct{}{
 	"AppImage": {},
 }
 
+func checkLatestYmlPlatform(filename string) string {
+	if strings.Contains(filename, "win") || filename == "latest.yml" {
+		return "exe"
+	}
+
+	if strings.Contains(filename, "mac") {
+		return "darwin"
+	}
+	if strings.Contains(filename, "linux") {
+		return "AppImage"
+	}
+
+	return ""
+}
+
 func checkPlatform(filename string) string {
 	extension := filepath.Ext(filename)
 	extension = strings.TrimLeft(extension, ".")
@@ -58,11 +73,12 @@ type Asset struct {
 
 // Release contains major info of every release record.
 type Release struct {
-	Version   string            `json:"version"`
-	Notes     string            `json:"notes"`
-	PubDate   github.Timestamp  `json:"pubDate"`
-	Platforms map[string]*Asset `json:"platforms"`
-	RELEASES  string            `json:"-"`
+	Version      string            `json:"version"`
+	Notes        string            `json:"notes"`
+	PubDate      github.Timestamp  `json:"pubDate"`
+	Platforms    map[string]*Asset `json:"platforms"`
+	PlatformYmls map[string]string `json:"platformYmls"`
+	RELEASES     string            `json:"RELEASES"`
 }
 
 // ReleaseData release info data for caching into file.
@@ -207,21 +223,37 @@ func (g *GithubCache) refreshCache() error {
 	}
 
 	latest := &Release{
-		Version:   *release.TagName,
-		Notes:     *release.Body,
-		PubDate:   *release.PublishedAt,
-		Platforms: make(map[string]*Asset),
+		Version:      *release.TagName,
+		Notes:        *release.Body,
+		PubDate:      *release.PublishedAt,
+		Platforms:    make(map[string]*Asset),
+		PlatformYmls: make(map[string]string),
 	}
 	log.Info().Str("version", latest.Version).Msg("Caching...")
 	for _, asset := range release.Assets {
 		if *asset.Name == "RELEASES" {
 			log.Debug().Interface("asset", asset).Msg("RELEASES")
-			content, err := g.cacheReleaseList(ctx, *asset.ID, *asset.BrowserDownloadURL)
+			content, err := g.fetchReleaseList(ctx, *asset.ID, *asset.BrowserDownloadURL)
 			if err != nil {
 				return err
 			}
 
 			latest.RELEASES = content
+			continue
+		}
+
+		// latest-[win/mac/linux].yml
+		if filepath.Ext(*asset.Name) == ".yml" {
+			platform := checkLatestYmlPlatform(*asset.Name)
+			if platform == "" {
+				continue
+			}
+			content, err := g.fetchAssetContent(ctx, *asset.ID, *asset.BrowserDownloadURL)
+			if err != nil {
+				return err
+			}
+			latest.PlatformYmls[platform] = content
+			log.Info().Str("asset", *asset.Name).Str("platform", platform).Msg("Cache latest yml")
 			continue
 		}
 
@@ -379,7 +411,7 @@ func (g *GithubCache) cacheAssetFile(release *Release, asset *Asset) error {
 	return nil
 }
 
-func (g *GithubCache) cacheReleaseList(ctx context.Context, id int64, url string) (string, error) {
+func (g *GithubCache) fetchAssetContent(ctx context.Context, id int64, url string) (string, error) {
 	client := g.newClient(ctx)
 	rc, redirectURL, err := client.Repositories.DownloadReleaseAsset(ctx, g.conf.Owner, g.conf.Repo, id, nil)
 	if err != nil {
@@ -392,7 +424,7 @@ func (g *GithubCache) cacheReleaseList(ctx context.Context, id int64, url string
 		}
 		rc = resp.Body
 	}
-	log.Debug().Interface("rc", rc).Str("redirectURL", redirectURL).Msg("cacheReleaseList")
+	log.Debug().Str("redirectURL", redirectURL).Msg("Fetch asset content")
 	defer rc.Close()
 
 	bs, err := ioutil.ReadAll(rc)
@@ -400,7 +432,14 @@ func (g *GithubCache) cacheReleaseList(ctx context.Context, id int64, url string
 		return "", err
 	}
 
-	content := string(bs)
+	return string(bs), nil
+}
+
+func (g *GithubCache) fetchReleaseList(ctx context.Context, id int64, url string) (string, error) {
+	content, err := g.fetchAssetContent(ctx, id, url)
+	if err != nil {
+		return "", err
+	}
 	re := regexp.MustCompile(`[^ ]*\.nupkg`)
 	matches := re.FindAllString(content, -1)
 	if len(matches) == 0 {
