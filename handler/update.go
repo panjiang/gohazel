@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"path"
@@ -43,14 +42,14 @@ func (h *Handler) update(c *gin.Context, isYmL bool) {
 		return
 	}
 
+	asset, ok := release.Platforms[platform]
+	if !ok {
+		api.NoContent(c)
+		return
+	}
+
 	if !isYmL {
 		if semver.Compare(version, release.Version) == 0 {
-			api.NoContent(c)
-			return
-		}
-
-		asset, ok := release.Platforms[platform]
-		if !ok {
 			api.NoContent(c)
 			return
 		}
@@ -75,14 +74,17 @@ func (h *Handler) update(c *gin.Context, isYmL bool) {
 		})
 	} else {
 		// latest.yml
-		latestYml, ok := release.PlatformYmls[platform]
-		fmt.Println(release.PlatformYmls, latestYml)
-		if !ok {
+		yml := asset.Yml
+		if yml == nil {
 			api.NoContent(c)
 			return
 		}
 
-		b := []byte(latestYml)
-		c.Data(http.StatusOK, "application/octet-stream", b)
+		if h.conf.ProxyDownload {
+			b := []byte(yml.Content)
+			c.Data(http.StatusOK, "application/octet-stream", b)
+		} else {
+			c.Redirect(http.StatusTemporaryRedirect, yml.BrowserDownloadURL)
+		}
 	}
 }

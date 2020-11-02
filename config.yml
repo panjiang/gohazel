@@ -1,9 +1,9 @@
-addr: ":8080"
-baseURL: http://localhost:8081
+addr: ":8400"
+baseURL: http://localhost:8400
 debug: true
 cacheDir: /assets
 proxyDownload: false
 github:
   owner: atom
   repo: atom
-  token: 
+  token:

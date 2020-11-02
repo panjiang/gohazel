@@ -61,31 +61,44 @@ func checkPlatform(filename string) string {
 	return ""
 }
 
+var latestYmlURLReg = regexp.MustCompile(`url:\s+([\w-.]+)`)
+
+// LatestYml stores asset update info of specific platform.
+type LatestYml struct {
+	Content            string `json:"content"`
+	BrowserDownloadURL string `json:"URL"`
+}
+
+// ReplaceURL replace the url in content with proxy url.
+func (yml *LatestYml) ReplaceURL(u string) {
+	yml.Content = latestYmlURLReg.ReplaceAllString(yml.Content, "url: "+u)
+}
+
 // Asset is the released package.
 type Asset struct {
-	ID                 int64  `json:"id"`
-	Name               string `json:"name"`
-	URL                string `json:"url"`
-	BrowserDownloadURL string `json:"browserDownloadURL"`
-	ContentType        string `json:"contentType"`
-	Size               int    `json:"size"`
+	ID                 int64      `json:"id"`
+	Name               string     `json:"name"`
+	URL                string     `json:"url"`
+	BrowserDownloadURL string     `json:"browserDownloadURL"`
+	ContentType        string     `json:"contentType"`
+	Size               int        `json:"size"`
+	Yml                *LatestYml `json:"latestYml"`
 }
 
 // Release contains major info of every release record.
 type Release struct {
-	Version      string            `json:"version"`
-	Notes        string            `json:"notes"`
-	PubDate      github.Timestamp  `json:"pubDate"`
-	Platforms    map[string]*Asset `json:"platforms"`
-	PlatformYmls map[string]string `json:"platformYmls"`
-	RELEASES     string            `json:"RELEASES"`
+	Version   string            `json:"version"`
+	Notes     string            `json:"notes"`
+	PubDate   github.Timestamp  `json:"pubDate"`
+	Platforms map[string]*Asset `json:"platforms"`
+	RELEASES  string            `json:"RELEASES"`
 }
 
 // ReleaseData release info data for caching into file.
 type ReleaseData struct {
 	Release       *Release `json:"release"`
 	RepoURL       string   `json:"repoUrl"`
-	ProxyDownload bool     `json:"openProxyDownload"`
+	ProxyDownload bool     `json:"proxyDownload"`
 }
 
 // ProxyDownloadConfig of proxy download files with current server.
@@ -113,27 +126,27 @@ func (c *GithubConfig) IsPrivateRepo() bool {
 
 // GithubCache caches release information fetching from github.
 type GithubCache struct {
-	quitCh            chan struct{}
-	wg                sync.WaitGroup
-	mu                sync.Mutex
-	closed            bool
-	conf              *GithubConfig
-	cacheURLBase      string
-	openProxyDownload bool
-	cacheDir          string
-	latest            *Release
-	latestMu          sync.RWMutex
-	latestUpdate      time.Time
+	quitCh        chan struct{}
+	wg            sync.WaitGroup
+	mu            sync.Mutex
+	closed        bool
+	conf          *GithubConfig
+	cacheURLBase  string
+	proxyDownload bool
+	cacheDir      string
+	latest        *Release
+	latestMu      sync.RWMutex
+	latestUpdate  time.Time
 }
 
 // NewGithubCache .
-func NewGithubCache(conf *GithubConfig, cacheDir string, openProxyDownload bool, cacheURLBase string) *GithubCache {
+func NewGithubCache(conf *GithubConfig, cacheDir string, proxyDownload bool, cacheURLBase string) *GithubCache {
 	g := &GithubCache{
-		quitCh:            make(chan struct{}),
-		conf:              conf,
-		openProxyDownload: openProxyDownload,
-		cacheURLBase:      cacheURLBase,
-		cacheDir:          cacheDir,
+		quitCh:        make(chan struct{}),
+		conf:          conf,
+		proxyDownload: proxyDownload,
+		cacheURLBase:  cacheURLBase,
+		cacheDir:      cacheDir,
 	}
 	log.Info().Str("url", conf.RepoURL()).Bool("private", conf.IsPrivateRepo()).Msg("Github repo")
 
@@ -223,17 +236,18 @@ func (g *GithubCache) refreshCache() error {
 	}
 
 	latest := &Release{
-		Version:      *release.TagName,
-		Notes:        *release.Body,
-		PubDate:      *release.PublishedAt,
-		Platforms:    make(map[string]*Asset),
-		PlatformYmls: make(map[string]string),
+		Version:   *release.TagName,
+		Notes:     *release.Body,
+		PubDate:   *release.PublishedAt,
+		Platforms: make(map[string]*Asset),
 	}
 	log.Info().Str("version", latest.Version).Msg("Caching...")
+
+	platformYmls := map[string]*LatestYml{}
 	for _, asset := range release.Assets {
 		if *asset.Name == "RELEASES" {
 			log.Debug().Interface("asset", asset).Msg("RELEASES")
-			content, err := g.fetchReleaseList(ctx, *asset.ID, *asset.BrowserDownloadURL)
+			content, err := g.fetchFileRELEASES(ctx, *asset.ID, *asset.BrowserDownloadURL)
 			if err != nil {
 				return err
 			}
@@ -248,11 +262,14 @@ func (g *GithubCache) refreshCache() error {
 			if platform == "" {
 				continue
 			}
-			content, err := g.fetchAssetContent(ctx, *asset.ID, *asset.BrowserDownloadURL)
+			content, err := g.fetchFileLatestYml(ctx, *asset.ID, *asset.BrowserDownloadURL)
 			if err != nil {
 				return err
 			}
-			latest.PlatformYmls[platform] = content
+			platformYmls[platform] = &LatestYml{
+				Content:            content,
+				BrowserDownloadURL: *asset.BrowserDownloadURL,
+			}
 			log.Info().Str("asset", *asset.Name).Str("platform", platform).Msg("Cache latest yml")
 			continue
 		}
@@ -273,7 +290,7 @@ func (g *GithubCache) refreshCache() error {
 
 		log.Info().Str("asset", *asset.Name).Str("platform", platform).Msg("Cache asset")
 		// Download asset into cache dir.
-		if g.openProxyDownload {
+		if g.proxyDownload {
 			if err := g.cacheAssetFile(latest, a); err != nil {
 				return err
 			}
@@ -282,11 +299,25 @@ func (g *GithubCache) refreshCache() error {
 		latest.Platforms[platform] = a
 	}
 
+	// Bind latest yml to asset.
+	for platform, asset := range latest.Platforms {
+		yml, ok := platformYmls[platform]
+		if ok {
+			asset.Yml = yml
+			// Replace download url in yaml file.
+			if g.proxyDownload {
+				yml.ReplaceURL(g.AssetFileURL(latest, asset.Name))
+			}
+		} else {
+			log.Error().Str("platform", platform).Msg("No latest yml")
+		}
+	}
+
 	g.latestMu.Lock()
 	g.latest = latest
 	g.latestMu.Unlock()
 
-	// Clean old cached assets
+	// Clean old cached assets.
 	if latestPrev != nil {
 		for _, a := range latestPrev.Platforms {
 			fn := g.AssetFilePath(latestPrev, a.Name)
@@ -327,7 +358,7 @@ func (g *GithubCache) loadReleaseCache() {
 		return
 	}
 
-	if data.ProxyDownload != g.openProxyDownload {
+	if data.ProxyDownload != g.proxyDownload {
 		return
 	}
 
@@ -339,7 +370,7 @@ func (g *GithubCache) cacheReleaseLastest(release *Release) {
 	data := &ReleaseData{
 		Release:       release,
 		RepoURL:       g.conf.RepoURL(),
-		ProxyDownload: g.openProxyDownload,
+		ProxyDownload: g.proxyDownload,
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -435,7 +466,7 @@ func (g *GithubCache) fetchAssetContent(ctx context.Context, id int64, url strin
 	return string(bs), nil
 }
 
-func (g *GithubCache) fetchReleaseList(ctx context.Context, id int64, url string) (string, error) {
+func (g *GithubCache) fetchFileRELEASES(ctx context.Context, id int64, url string) (string, error) {
 	content, err := g.fetchAssetContent(ctx, id, url)
 	if err != nil {
 		return "", err
@@ -451,6 +482,14 @@ func (g *GithubCache) fetchReleaseList(ctx context.Context, id int64, url string
 		content = strings.ReplaceAll(content, match, nuPKG)
 	}
 
+	return content, nil
+}
+
+func (g *GithubCache) fetchFileLatestYml(ctx context.Context, id int64, url string) (string, error) {
+	content, err := g.fetchAssetContent(ctx, id, url)
+	if err != nil {
+		return "", err
+	}
 	return content, nil
 }
 

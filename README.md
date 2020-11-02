@@ -41,7 +41,7 @@ Overview repo and cached release information.
 Responses download url (`"Location"`) for detected platform which parsed from user agent.
 
 ```console
-$ curl http://localhost:8080/download
+$ curl http://localhost:8400/download
 ```
 
 - Github directly
@@ -53,7 +53,7 @@ $ curl http://localhost:8080/download
 - Server proxy
 
 ```json
-{"Location":"http://localhost:8080/assets/atom/atom/v1.52.0/AtomSetup.exe"}
+{"Location":"http://localhost:8400/assets/atom/atom/v1.52.0/AtomSetup.exe"}
 ```
 
 ### `/download/:platform`
@@ -61,7 +61,7 @@ $ curl http://localhost:8080/download
 Responses download url for specified platform in uri.
 
 ```console
-$ curl http://localhost:8080/download/darwin
+$ curl http://localhost:8400/download/darwin
 ```
 
 - Github directly
@@ -73,7 +73,7 @@ $ curl http://localhost:8080/download/darwin
 - Server proxy
 
 ```json
-{"Location":"http://localhost:8080/assets/atom/atom/v1.52.0/atom-mac.zip"}
+{"Location":"http://localhost:8400/assets/atom/atom/v1.52.0/atom-mac.zip"}
 ```
 
 ### `/update/:platform/:version`
@@ -81,8 +81,8 @@ $ curl http://localhost:8080/download/darwin
 Check update info
 
 ```
-$ curl http://localhost:8080/update/win/v0.0.1
-{"name":"v1.52.0","notes":"## Notable Changes...","pub_data":"2020-10-13T14:11:00Z","url":"http://localhost:8080/download/exe?update=true"}
+$ curl http://localhost:8400/update/win/v0.0.1
+{"name":"v1.52.0","notes":"## Notable Changes...","pub_data":"2020-10-13T14:11:00Z","url":"http://localhost:8400/download/exe?update=true"}
 ```
 
 ### `/update/win32/:version/RELEASES`
@@ -116,10 +116,10 @@ Server Options:
 `config.yml`
 
 ```yml
-bind: ":8080"
+bind: ":8400"
 debug: false
 debugGin: false
-baseURL: http://localhost:8080
+baseURL: http://localhost:8400
 cacheDir: /assets
 proxyDownload: false
 github:
@@ -141,7 +141,7 @@ Docker Repository: [panjiang/gohazel](https://hub.docker.com/repository/docker/p
 docker run -d --rm --name gohazel \
         -v /data/gohazel/config.yml:/config.yml\
 		-v /data/gohazel/assets:/assets \
-		-p 8080:8080 \
+		-p 8400:8400 \
 		panjiang/gohazel
 ```
 
@@ -156,13 +156,13 @@ services:
     container_name: gohazel
     image: panjiang/gohazel:latest
     ports:
-      - "8080:8080"
+      - "8400:8400"
     volumes:
       - /data/gohazel/assets:/assets
     command:
       - /gohazel
-      - -addr=:8080
-      - -base_url=http://localhost:8080
+      - -addr=:8400
+      - -base_url=http://localhost:8400
       - -cache_dir=/assets
       - -proxy_download=false
       - -github_owner=atom

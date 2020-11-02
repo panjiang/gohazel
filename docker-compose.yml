@@ -4,13 +4,13 @@ services:
     container_name: gohazel
     image: panjiang/gohazel:latest
     ports:
-      - "8080:8080"
+      - "8400:8400"
     volumes:
       - /data/gohazel/assets:/assets
     command:
-      - /gohazel 
-      - -addr=:8080
-      - -base_url=http://localhost:8080
+      - /gohazel
+      - -addr=:8400
+      - -base_url=http://localhost:8400
       - -cache_dir=/assets
       - -proxy_download=false
       - -github_owner=atom

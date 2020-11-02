@@ -71,8 +71,8 @@ func (c *Config) ParseFile(filename string) error {
 func Parse(fs *flag.FlagSet, args []string) (*Config, error) {
 	conf := &Config{}
 	var configFile string
-	fs.StringVar(&conf.Addr, "addr", ":8080", "Server listen address.")
-	fs.StringVar(&conf.BaseURL, "base_url", "http://localhost:8080", "The server base URL.")
+	fs.StringVar(&conf.Addr, "addr", ":8400", "Server listen address.")
+	fs.StringVar(&conf.BaseURL, "base_url", "http://localhost:8400", "The server base URL.")
 	fs.BoolVar(&conf.Debug, "debug", false, "Open log debug level.")
 	fs.StringVar(&conf.CacheDir, "cache_dir", "/assets", "Cache files store in.")
 	fs.BoolVar(&conf.ProxyDownload, "proxy_download", false, "Proxy assets download with the server.")

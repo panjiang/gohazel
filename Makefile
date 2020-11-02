@@ -18,7 +18,7 @@ docker-push:
 docker-run:
 	docker run --rm -d --name gohazel \
 		-v /data/gohazel/assets:/assets \
-		-p 8080:8080 \
+		-p 8400:8400 \
 		panjiang/gohazel
 
 staticcheck:
